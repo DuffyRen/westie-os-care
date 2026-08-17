@@ -6,9 +6,7 @@ import {
   Bell,
   Bone,
   BookOpen,
-  CalendarDays,
   Check,
-  ChevronDown,
   CircleHelp,
   Clock3,
   Droplets,
@@ -18,7 +16,6 @@ import {
   Info,
   Leaf,
   Minus,
-  MoreHorizontal,
   PawPrint,
   PencilLine,
   Plus,
@@ -50,16 +47,39 @@ const initialLog = {
   food: 102,
   exercise: 22,
   water: 'normal',
+  weightKg: null,
   stool: 'good',
   skin: 'normal',
   mood: 'bright',
   brushed: false,
+  medication: '',
+  note: '',
+  entries: ['food', 'exercise', 'water', 'health'],
 };
 
 const initialPlan = {
   food: 102,
   exercise: 30,
   brush: 1,
+};
+
+const initialProfile = {
+  petName: '你的小西',
+  breed: '西高地白梗',
+  sex: '公犬',
+  birthDate: '2026-04-20',
+  microchip: '',
+  notes: '',
+  weights: [{ id: 'weight-known', date: '2026-08-14', kg: 2.5 }],
+  vaccines: [{
+    id: 'vaccine-known',
+    name: '基础联苗（共 3 针）',
+    date: '',
+    status: '已完成',
+    nextDate: '',
+    note: '具体日期待按疫苗本补充',
+  }],
+  deworming: [],
 };
 
 const feedings = [
@@ -225,24 +245,14 @@ const articleLibrary = {
     ], checklist: ['疫苗本照片', '接种日期与产品', '驱虫记录', '检查报告', '兽医联系方式'], source: [{ label: 'WSAVA：2024 犬猫疫苗指南', url: 'https://wsava.org/Global-Guidelines/Vaccination-Guidelines/' }],
   },
   help: {
-    tag: '使用帮助', time: '2 分钟', title: '这套系统怎么用', intro: '每天只需要完成一次简短记录，系统会根据你的个人计划值给出方向，而不是把示例数字当作医学标准。',
+    tag: '使用帮助', time: '2 分钟', title: '这套系统怎么用', intro: '长期档案与每日事项分开管理；今天发生什么就记录什么，不需要机械填满整张表。',
     sections: [
-      { title: '1. 记录今天', body: '填写全天饮食、轻度活动和四项健康观察。数据只保存在当前浏览器。' },
-      { title: '2. 调整计划', body: '根据当前粮袋、体况和兽医建议修改饮食与活动计划。体重以连续趋势观察，不设万能合格线。' },
-      { title: '3. 阅读手册', body: '按饮食、运动、健康和美容筛选文章；每篇都标出可执行步骤与需要专业判断的边界。' },
+      { title: '1. 管理西高地档案', body: '从侧栏宠物卡片或健康页进入档案，补充基础资料、体重、疫苗和驱虫。数据只保存在当前浏览器。' },
+      { title: '2. 按事项记录今天', body: '先选择饮食、饮水变化、活动、体重、健康观察或护理，再保存所选内容。没填写的项目不会被自动判为正常。' },
+      { title: '3. 调整计划与阅读手册', body: '计划值用于日常对比；手册会标出可执行步骤与需要专业判断的边界。' },
     ], checklist: ['完成今日记录', '每周复盘趋势', '异常时直接联系兽医'],
   },
 };
-
-const trend = [
-  { day: '08/08', weight: 2.34, food: 98, exercise: 18 },
-  { day: '08/09', weight: 2.38, food: 102, exercise: 25 },
-  { day: '08/10', weight: 2.41, food: 102, exercise: 28 },
-  { day: '08/11', weight: 2.44, food: 100, exercise: 16 },
-  { day: '08/12', weight: 2.47, food: 102, exercise: 24 },
-  { day: '08/13', weight: 2.49, food: 102, exercise: 30 },
-  { day: '08/14', weight: 2.5, food: 102, exercise: 22 },
-];
 
 function clamp(value, min = 0, max = 100) {
   return Math.min(Math.max(value, min), max);
@@ -256,11 +266,45 @@ function getAge(birth = '2026-04-20') {
   return { days, months, label: `${months}个月 · ${days}天` };
 }
 
+function normalizeLog(saved) {
+  if (!saved) return initialLog;
+  const entries = Array.isArray(saved.entries)
+    ? saved.entries
+    : ['food', 'exercise', 'water', 'health'];
+  return { ...initialLog, ...saved, entries };
+}
+
+function normalizeProfile(saved) {
+  if (!saved) return initialProfile;
+  return {
+    ...initialProfile,
+    ...saved,
+    weights: Array.isArray(saved.weights) ? saved.weights : initialProfile.weights,
+    vaccines: Array.isArray(saved.vaccines) ? saved.vaccines : initialProfile.vaccines,
+    deworming: Array.isArray(saved.deworming) ? saved.deworming : initialProfile.deworming,
+  };
+}
+
+function makeId(prefix) {
+  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function formatShortDate(date) {
+  if (!date) return '日期待补充';
+  const [, month, day] = date.split('-');
+  return `${month} · ${day}`;
+}
+
+function latestWeight(profile) {
+  const records = [...profile.weights].filter((item) => Number(item.kg) > 0).sort((a, b) => a.date.localeCompare(b.date));
+  return records.at(-1) || null;
+}
+
 function App() {
   const [active, setActive] = useState('today');
   const [log, setLog] = useState(() => {
     try {
-      return JSON.parse(localStorage.getItem('westie-log')) || initialLog;
+      return normalizeLog(JSON.parse(localStorage.getItem('westie-log')));
     } catch {
       return initialLog;
     }
@@ -272,12 +316,21 @@ function App() {
       return initialPlan;
     }
   });
+  const [profile, setProfile] = useState(() => {
+    try {
+      return normalizeProfile(JSON.parse(localStorage.getItem('westie-profile')));
+    } catch {
+      return initialProfile;
+    }
+  });
   const [checkInOpen, setCheckInOpen] = useState(false);
+  const [checkInType, setCheckInType] = useState('');
   const [planOpen, setPlanOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [notice, setNotice] = useState('');
   const [mobileMenu, setMobileMenu] = useState(false);
   const [selectedArticle, setSelectedArticle] = useState(null);
-  const age = getAge();
+  const age = getAge(profile.birthDate);
 
   const scores = useMemo(() => {
     const foodGap = Math.abs(log.food - plan.food) / Math.max(plan.food, 1);
@@ -290,11 +343,28 @@ function App() {
     return { food, exercise, health, grooming, total };
   }, [log, plan]);
 
-  const saveLog = (next) => {
-    setLog(next);
-    localStorage.setItem('westie-log', JSON.stringify(next));
+  const openCheckIn = (type = '') => {
+    setCheckInType(type);
+    setCheckInOpen(true);
+  };
+
+  const saveLog = (next, updatedTypes = []) => {
+    const mergedEntries = [...new Set([...(next.entries || []), ...updatedTypes])];
+    const savedLog = { ...next, entries: mergedEntries, lastUpdated: new Date().toISOString() };
+    setLog(savedLog);
+    localStorage.setItem('westie-log', JSON.stringify(savedLog));
+
+    if (updatedTypes.includes('weight') && Number(next.weightKg) > 0) {
+      const today = new Date().toISOString().slice(0, 10);
+      const weights = profile.weights.filter((item) => item.date !== today);
+      const nextProfile = { ...profile, weights: [...weights, { id: makeId('weight'), date: today, kg: Number(next.weightKg) }] };
+      setProfile(nextProfile);
+      localStorage.setItem('westie-profile', JSON.stringify(nextProfile));
+    }
+
     setCheckInOpen(false);
-    showNotice('今日记录已更新');
+    const names = { food: '饮食', water: '饮水', exercise: '活动', weight: '体重', health: '健康观察', care: '护理 / 用药' };
+    showNotice(updatedTypes.length ? `已更新：${updatedTypes.map((type) => names[type]).join('、')}` : '今日记录已更新');
   };
 
   const savePlan = (next) => {
@@ -302,6 +372,19 @@ function App() {
     localStorage.setItem('westie-plan', JSON.stringify(next));
     setPlanOpen(false);
     showNotice('对比计划已更新');
+  };
+
+  const saveProfile = (next) => {
+    const cleaned = {
+      ...next,
+      weights: next.weights.filter((item) => item.date && Number(item.kg) > 0).map((item) => ({ ...item, kg: Number(item.kg) })),
+      vaccines: next.vaccines.filter((item) => String(item.name || '').trim()),
+      deworming: next.deworming.filter((item) => String(item.name || '').trim()),
+    };
+    setProfile(cleaned);
+    localStorage.setItem('westie-profile', JSON.stringify(cleaned));
+    setProfileOpen(false);
+    showNotice('西高地档案已保存');
   };
 
   const showNotice = (message) => {
@@ -323,7 +406,7 @@ function App() {
   const exportArchive = () => {
     const archive = {
       exportedAt: new Date().toISOString(),
-      pet: { breed: '西高地白梗', sex: '公犬', birthDate: '2026-04-20', latestWeightKg: 2.5 },
+      pet: profile,
       plan,
       today: log,
       feedingCalibration: { gramsPerPortion: 17, dailyPlanGrams: plan.food },
@@ -341,12 +424,12 @@ function App() {
 
   return (
     <div className="app-shell">
-      <Sidebar active={active} onNavigate={navigate} age={age} onExport={exportArchive} onHelp={() => openArticle('help')} onProfile={() => openArticle('health-records')} />
+      <Sidebar active={active} onNavigate={navigate} age={age} profile={profile} onExport={exportArchive} onHelp={() => openArticle('help')} onProfile={() => setProfileOpen(true)} />
 
       <main className="main-view">
         <Topbar
           active={active}
-          onCheckIn={() => setCheckInOpen(true)}
+          onCheckIn={() => openCheckIn()}
           onPlan={() => setPlanOpen(true)}
           onMenu={() => setMobileMenu(!mobileMenu)}
           onNotify={() => showNotice('目前没有新的提醒')}
@@ -359,25 +442,27 @@ function App() {
               plan={plan}
               scores={scores}
               age={age}
-              onCheckIn={() => setCheckInOpen(true)}
+              profile={profile}
+              onCheckIn={() => openCheckIn()}
               onPlan={() => setPlanOpen(true)}
               onNavigate={navigate}
               showNotice={showNotice}
               onOpenArticle={openArticle}
             />
           )}
-          {active === 'food' && <FoodPage log={log} plan={plan} onCheckIn={() => setCheckInOpen(true)} onPlan={() => setPlanOpen(true)} />}
-          {active === 'exercise' && <ExercisePage log={log} plan={plan} onCheckIn={() => setCheckInOpen(true)} showNotice={showNotice} />}
-          {active === 'health' && <HealthPage log={log} onCheckIn={() => setCheckInOpen(true)} onOpenArticle={openArticle} />}
-          {active === 'grooming' && <GroomingPage log={log} setLog={saveLog} showNotice={showNotice} onOpenArticle={openArticle} />}
+          {active === 'food' && <FoodPage log={log} plan={plan} profile={profile} onCheckIn={() => openCheckIn('food')} onPlan={() => setPlanOpen(true)} />}
+          {active === 'exercise' && <ExercisePage log={log} plan={plan} onCheckIn={() => openCheckIn('exercise')} showNotice={showNotice} />}
+          {active === 'health' && <HealthPage log={log} profile={profile} onCheckIn={() => openCheckIn('health')} onOpenArticle={openArticle} onEditProfile={() => setProfileOpen(true)} />}
+          {active === 'grooming' && <GroomingPage log={log} setLog={(next) => saveLog(next, ['care'])} showNotice={showNotice} onOpenArticle={openArticle} />}
           {active === 'handbook' && <HandbookPage onOpenArticle={openArticle} />}
         </div>
 
         <MobileNav active={active} onNavigate={navigate} open={mobileMenu} onPlan={() => setPlanOpen(true)} />
       </main>
 
-      {checkInOpen && <CheckInModal current={log} plan={plan} onClose={() => setCheckInOpen(false)} onSave={saveLog} />}
+      {checkInOpen && <CheckInModal current={log} plan={plan} initialType={checkInType} onClose={() => setCheckInOpen(false)} onSave={saveLog} />}
       {planOpen && <PlanModal current={plan} onClose={() => setPlanOpen(false)} onSave={savePlan} />}
+      {profileOpen && <ProfileModal current={profile} onClose={() => setProfileOpen(false)} onSave={saveProfile} />}
       {selectedArticle && <ArticleDrawer article={selectedArticle} onClose={() => setSelectedArticle(null)} onDone={() => { setSelectedArticle(null); showNotice('已完成阅读'); }} />}
       {notice && (
         <div className="toast" role="status">
@@ -388,7 +473,7 @@ function App() {
   );
 }
 
-function Sidebar({ active, onNavigate, age, onExport, onHelp, onProfile }) {
+function Sidebar({ active, onNavigate, age, profile, onExport, onHelp, onProfile }) {
   return (
     <aside className="sidebar">
       <button className="brand" onClick={() => onNavigate('today')} aria-label="返回今日">
@@ -411,8 +496,8 @@ function Sidebar({ active, onNavigate, age, onExport, onHelp, onProfile }) {
         <div className="local-first-note"><ShieldCheck size={15} /><span><strong>本地优先</strong>记录仅保存在这台设备</span></div>
         <div className="pet-mini-card">
           <div className="pet-avatar"><WestieFace /></div>
-          <div><strong>你的小西</strong><span>公犬 · {age.label}</span></div>
-          <button aria-label="查看宠物资料" onClick={onProfile}><MoreHorizontal size={18} /></button>
+          <div><strong>{profile.petName || '你的小西'}</strong><span>{profile.sex || '性别待补充'} · {age.label}</span></div>
+          <button aria-label="编辑宠物档案" onClick={onProfile}><PencilLine size={17} /></button>
         </div>
         <button className="quiet-link" onClick={onHelp}><CircleHelp size={18} />使用帮助</button>
         <button className="quiet-link" onClick={onExport}><Download size={18} />导出档案</button>
@@ -443,16 +528,22 @@ function Topbar({ active, onCheckIn, onPlan, onMenu, onNotify }) {
   );
 }
 
-function Dashboard({ log, plan, scores, age, onCheckIn, onPlan, onNavigate, showNotice, onOpenArticle }) {
+function Dashboard({ log, plan, scores, age, profile, onCheckIn, onPlan, onNavigate, showNotice, onOpenArticle }) {
   const exerciseGap = Math.max(plan.exercise - log.exercise, 0);
   const foodGap = log.food - plan.food;
+  const entries = new Set(log.entries || []);
+  const weights = [...profile.weights].filter((item) => Number(item.kg) > 0).sort((a, b) => a.date.localeCompare(b.date)).slice(-7);
+  const currentWeight = weights.at(-1);
+  const previousWeight = weights.length > 1 ? weights.at(-2) : null;
+  const weightDelta = currentWeight && previousWeight ? Number(currentWeight.kg) - Number(previousWeight.kg) : null;
+  const trendData = weights.map((item) => ({ day: item.date.slice(5).replace('-', '/'), weight: Number(item.kg) }));
   return (
     <div className="page dashboard-page">
       <section className="hero-grid">
         <div className="hero-copy">
           <div className="eyebrow"><span className="live-dot" />今天的成长简报</div>
           <h1>状态不错，<br />再补一点<em>探索</em>。</h1>
-          <p>饮食按计划完成，健康观察未见异常。今天还差 {exerciseGap} 分钟低强度活动，晚饭后安排一次短嗅闻就够了。</p>
+          <p>{entries.has('food') ? '饮食已有记录。' : '今天还没有饮食记录。'}{entries.has('health') || entries.has('water') ? '健康观察已更新。' : '健康状态不默认判断。'}今天还差 {exerciseGap} 分钟低强度活动，可按实际状态安排一次短嗅闻。</p>
           <div className="hero-actions">
             <button className="primary-button large" onClick={onCheckIn}>完成今日记录<ArrowRight size={18} /></button>
             <button className="text-button" onClick={() => onNavigate('handbook')}>查看本月手册<BookOpen size={17} /></button>
@@ -495,11 +586,11 @@ function Dashboard({ log, plan, scores, age, onCheckIn, onPlan, onNavigate, show
             icon={Weight}
             color="violet"
             label="最近体重"
-            value="2.50"
+            value={currentWeight ? Number(currentWeight.kg).toFixed(2) : '—'}
             unit="kg"
             target="看趋势"
-            score={82}
-            status="平稳上升"
+            score={currentWeight ? 82 : 0}
+            status={currentWeight ? `${formatShortDate(currentWeight.date)}记录` : '待补充'}
             note="单次体重不作健康判断"
           />
           <ComparisonCard
@@ -519,14 +610,14 @@ function Dashboard({ log, plan, scores, age, onCheckIn, onPlan, onNavigate, show
       <section className="insight-grid">
         <div className="panel trend-panel">
           <div className="panel-heading">
-            <div><span className="eyebrow">成长趋势</span><h3>体重正在稳定变化</h3></div>
+            <div><span className="eyebrow">成长趋势</span><h3>{weights.length > 1 ? '体重变化一眼看清' : '从第一条体重开始'}</h3></div>
             <div className="range-toggle"><button className="active">7 天</button><button onClick={() => showNotice('积累 30 天记录后会自动生成月趋势')}>30 天</button></div>
           </div>
           <div className="trend-summary">
-            <strong>2.50 <small>kg</small></strong>
-            <span><TrendingUp size={15} />近 7 天 +0.16 kg</span>
+            <strong>{currentWeight ? Number(currentWeight.kg).toFixed(2) : '—'} <small>kg</small></strong>
+            <span><TrendingUp size={15} />{weightDelta === null ? `已记录 ${weights.length} 次` : `较上次 ${weightDelta >= 0 ? '+' : ''}${weightDelta.toFixed(2)} kg`}</span>
           </div>
-          <LineChart data={trend} />
+          {trendData.length > 0 ? <LineChart data={trendData} /> : <div className="chart-empty"><Weight size={25} /><span>去“西高地档案”添加第一条体重</span></div>}
           <div className="chart-legend"><span><i />体重记录</span><span className="baseline"><i />观察趋势，不设单点合格线</span></div>
         </div>
 
@@ -538,7 +629,7 @@ function Dashboard({ log, plan, scores, age, onCheckIn, onPlan, onNavigate, show
           <div className="priority-list">
             <PriorityItem number="01" icon={Wind} title={`补 ${exerciseGap} 分钟自由嗅闻`} body="晚餐后选择安静路线，不追求速度和距离。" tone="blue" action="安排" onAction={() => showNotice('已加入今晚 20:30 的计划')} />
             <PriorityItem number="02" icon={Sparkles} title="睡前梳毛 3 分钟" body="重点看耳后、腋下和四肢是否打结或发红。" tone="gold" action="标记" onAction={() => showNotice('已加入睡前护理')} />
-            <PriorityItem number="03" icon={Droplets} title="继续观察饮水和便便" body="目前记录正常，不需要因为单日波动频繁换粮。" tone="mint" action="知道了" onAction={() => showNotice('已完成阅读')} />
+            <PriorityItem number="03" icon={Droplets} title={entries.has('health') || entries.has('water') ? '继续观察饮水和便便' : '有变化时再补健康记录'} body={entries.has('health') || entries.has('water') ? '连续变化比单次波动更有参考价值。' : '没有观察就保持空白，不把未填写当成正常。'} tone="mint" action="知道了" onAction={() => showNotice('已完成阅读')} />
           </div>
           <div className="safety-note"><ShieldCheck size={18} /><span><strong>健康边界</strong>持续呕吐、呼吸异常、虚弱、血便或明显疼痛，请直接联系兽医，不等待系统评分。</span></div>
         </div>
@@ -613,12 +704,12 @@ function LineChart({ data }) {
   const min = Math.min(...data.map((d) => d.weight)) - 0.03;
   const max = Math.max(...data.map((d) => d.weight)) + 0.03;
   const points = data.map((d, index) => {
-    const x = padX + (index * (width - padX * 2)) / (data.length - 1);
+    const x = data.length === 1 ? width / 2 : padX + (index * (width - padX * 2)) / (data.length - 1);
     const y = padY + ((max - d.weight) * (height - padY * 2)) / (max - min);
     return { x, y, ...d };
   });
   const path = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
-  const area = `${path} L ${points[points.length - 1].x} ${height - 22} L ${points[0].x} ${height - 22} Z`;
+  const area = data.length > 1 ? `${path} L ${points[points.length - 1].x} ${height - 22} L ${points[0].x} ${height - 22} Z` : '';
   return (
     <div className="chart-wrap">
       <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="近七天体重趋势图">
@@ -629,8 +720,8 @@ function LineChart({ data }) {
           </linearGradient>
         </defs>
         {[0, 1, 2, 3].map((line) => <line key={line} x1="20" x2="640" y1={28 + line * 42} y2={28 + line * 42} className="grid-line" />)}
-        <path d={area} fill="url(#chartArea)" />
-        <path d={path} className="trend-line" />
+        {area && <path d={area} fill="url(#chartArea)" />}
+        {data.length > 1 && <path d={path} className="trend-line" />}
         {points.map((p, index) => (
           <g key={p.day}>
             <circle cx={p.x} cy={p.y} r={index === points.length - 1 ? 6 : 3.5} className={index === points.length - 1 ? 'point active' : 'point'} />
@@ -674,8 +765,10 @@ function PageIntro({ eyebrow, title, body, action, onAction }) {
   );
 }
 
-function FoodPage({ log, plan, onCheckIn, onPlan }) {
+function FoodPage({ log, plan, profile, onCheckIn, onPlan }) {
   const remaining = Math.max(plan.food - feedings.filter((f) => f.done).reduce((sum, f) => sum + f.amount, 0), 0);
+  const currentWeight = latestWeight(profile);
+  const entries = new Set(log.entries || []);
   return (
     <div className="page module-page">
       <PageIntro eyebrow="饮食管理" title="把每一口，记得刚刚好" body="先对齐全天总量，再观察食欲、便便与体重趋势。克数计划应以当前粮袋标示、体况和兽医建议为准。" action="记录喂食" onAction={onCheckIn} />
@@ -692,12 +785,12 @@ function FoodPage({ log, plan, onCheckIn, onPlan }) {
           </div>
         </section>
         <section className="panel observation-panel">
-          <div className="panel-heading"><div><span className="eyebrow">观察闭环</span><h3>今天的反馈</h3></div><span className="status-chip good">整体正常</span></div>
+          <div className="panel-heading"><div><span className="eyebrow">观察闭环</span><h3>今天的反馈</h3></div><span className="status-chip neutral">按实际记录</span></div>
           <div className="observation-grid">
-            <Observation icon={Droplets} label="饮水" value="正常" />
-            <Observation icon={Leaf} label="便便" value="成形" />
-            <Observation icon={Bone} label="食欲" value="积极" />
-            <Observation icon={Weight} label="体重" value="2.50 kg" />
+            <Observation icon={Droplets} label="饮水变化" value={entries.has('water') ? ({ normal: '与平时相近', more: '明显变多', less: '明显变少' })[log.water] : '今天未记录'} recorded={entries.has('water')} />
+            <Observation icon={Leaf} label="便便" value={entries.has('health') ? ({ good: '成形', soft: '偏软', warning: '异常' })[log.stool] : '今天未记录'} recorded={entries.has('health')} />
+            <Observation icon={Bone} label="饮食总量" value={entries.has('food') ? `${log.food} g` : '今天未记录'} recorded={entries.has('food')} />
+            <Observation icon={Weight} label="最近体重" value={currentWeight ? `${Number(currentWeight.kg).toFixed(2)} kg` : '待补充'} recorded={Boolean(currentWeight)} />
           </div>
           <div className="coach-note"><Sparkles size={18} /><p><strong>本周建议</strong>当前全天总量完成稳定。不要因为一顿剩粮立刻换粮；先结合连续记录判断。</p></div>
           <button className="outline-button full" onClick={onPlan}>调整我的饮食计划</button>
@@ -727,21 +820,37 @@ function ExercisePage({ log, plan, onCheckIn, showNotice }) {
   );
 }
 
-function HealthPage({ log, onCheckIn, onOpenArticle }) {
+function HealthPage({ log, profile, onCheckIn, onOpenArticle, onEditProfile }) {
+  const entries = new Set(log.entries || []);
+  const waterLabels = { normal: '与平时相近', more: '明显变多', less: '明显变少' };
+  const stoolLabels = { good: '成形', soft: '偏软', warning: '异常' };
+  const skinLabels = { normal: '无异常', itch: '偶尔抓挠', warning: '红 / 湿 / 臭' };
+  const moodLabels = { bright: '活跃', quiet: '比平时安静', warning: '明显虚弱' };
+  const hasObservation = entries.has('water') || entries.has('health');
+  const hasWarning = log.stool === 'warning' || log.skin === 'warning' || log.mood === 'warning';
+  const currentWeight = latestWeight(profile);
+  const latestVaccine = profile.vaccines.at(-1);
+  const latestDeworming = profile.deworming.at(-1);
+
   return (
     <div className="page module-page">
-      <PageIntro eyebrow="健康管理" title="看见变化，而不是猜测" body="用连续记录帮助你更早发现异常，也帮助兽医看到完整背景。系统提示只做分流，不代替检查与诊断。" action="添加健康观察" onAction={onCheckIn} />
+      <PageIntro eyebrow="健康管理" title="看见变化，而不是猜测" body="长期档案保存体重、疫苗和驱虫；每日记录只填写今天真正发生的事项。系统提示只做分流，不代替检查与诊断。" action="记录健康事项" onAction={onCheckIn} />
       <div className="health-overview">
-        <div className="health-status-main"><span className="pulse-orb"><HeartPulse size={27} /></span><div><span className="eyebrow">今日观察</span><h2>未记录到明显异常</h2><p>饮水、便便、精神与皮肤观察均在你的“正常”范围。</p></div><span className="status-chip good"><Check size={14} />稳定</span></div>
-        <div className="health-vitals"><Observation icon={Droplets} label="饮水" value="正常" /><Observation icon={Leaf} label="便便" value="成形" /><Observation icon={ThermometerSun} label="皮肤" value="无红斑" /><Observation icon={Activity} label="精神" value="活跃" /></div>
+        <div className="health-status-main"><span className="pulse-orb"><HeartPulse size={27} /></span><div><span className="eyebrow">今日观察</span><h2>{hasWarning ? '有一项需要继续关注' : hasObservation ? '今天的观察已经记录' : '今天还没有健康记录'}</h2><p>{hasObservation ? '这里只展示你主动记录的事项；没填写不等于默认正常。' : '有变化时再记录即可，不需要每天机械填写全部项目。'}</p></div><span className={`status-chip ${hasWarning ? 'mild' : 'good'}`}>{hasObservation ? <Check size={14} /> : <Plus size={14} />}{hasObservation ? (hasWarning ? '关注' : '已记录') : '可选记录'}</span></div>
+        <div className="health-vitals">
+          <Observation icon={Droplets} label="饮水变化" value={entries.has('water') ? waterLabels[log.water] : '今天未记录'} recorded={entries.has('water')} />
+          <Observation icon={Leaf} label="便便" value={entries.has('health') ? stoolLabels[log.stool] : '今天未记录'} recorded={entries.has('health')} />
+          <Observation icon={ThermometerSun} label="皮肤 / 耳朵" value={entries.has('health') ? skinLabels[log.skin] : '今天未记录'} recorded={entries.has('health')} />
+          <Observation icon={Activity} label="精神" value={entries.has('health') ? moodLabels[log.mood] : '今天未记录'} recorded={entries.has('health')} />
+        </div>
       </div>
       <div className="two-column health-columns">
         <section className="panel record-panel">
-          <div className="panel-heading"><div><span className="eyebrow">健康档案</span><h3>已记录事项</h3></div><button className="text-button muted" onClick={() => onOpenArticle('health-records')}>查看全部<ArrowRight size={15} /></button></div>
+          <div className="panel-heading"><div><span className="eyebrow">可编辑档案</span><h3>体重、疫苗与驱虫</h3></div><button className="text-button muted" onClick={onEditProfile}><PencilLine size={15} />管理档案</button></div>
           <div className="record-timeline">
-            <RecordItem date="近期" title="三针基础疫苗" body="已记录；后续安排以疫苗本、产品标签和兽医意见为准。" icon={ShieldCheck} />
-            <RecordItem date="近期" title="CDV / CPV 检测" body="抗原检测阴性；IgG 抗体已记录。结果不等于零感染风险。" icon={Stethoscope} />
-            <RecordItem date="08 · 14" title="每日健康观察" body="饮水、便便、皮肤和精神均记录为正常。" icon={Check} />
+            <RecordItem date={currentWeight ? formatShortDate(currentWeight.date) : '待补充'} title={currentWeight ? `体重 ${Number(currentWeight.kg).toFixed(2)} kg` : '还没有体重记录'} body={currentWeight ? `档案中共 ${profile.weights.length} 条体重记录，可继续补录历史数据。` : '添加第一次称重后，首页会自动显示趋势。'} icon={Weight} />
+            <RecordItem date={latestVaccine ? formatShortDate(latestVaccine.date) : '待补充'} title={latestVaccine?.name || '还没有疫苗记录'} body={latestVaccine ? `${latestVaccine.status}${latestVaccine.nextDate ? ` · 下次 ${latestVaccine.nextDate}` : ''}${latestVaccine.note ? ` · ${latestVaccine.note}` : ''}` : '可按疫苗本逐针补充日期、状态与下次安排。'} icon={ShieldCheck} />
+            <RecordItem date={latestDeworming ? formatShortDate(latestDeworming.date) : '待补充'} title={latestDeworming?.name || '还没有驱虫记录'} body={latestDeworming ? `${latestDeworming.nextDate ? `下次 ${latestDeworming.nextDate}` : '未设置下次日期'}${latestDeworming.note ? ` · ${latestDeworming.note}` : ''}` : '添加体内或体外驱虫记录，后续日期会显示在周期护理。'} icon={Bone} />
           </div>
         </section>
         <section className="panel triage-panel">
@@ -751,20 +860,22 @@ function HealthPage({ log, onCheckIn, onOpenArticle }) {
           <button className="urgent-button" onClick={() => onOpenArticle('emergency')}><Stethoscope size={17} />查看紧急处置清单</button>
         </section>
       </div>
-      <RecurringCare onOpenArticle={onOpenArticle} />
+      <RecurringCare profile={profile} onEditProfile={onEditProfile} />
     </div>
   );
 }
 
-function RecurringCare({ onOpenArticle }) {
+function RecurringCare({ profile, onEditProfile }) {
+  const nextVaccine = profile.vaccines.find((item) => item.nextDate);
+  const nextDeworming = profile.deworming.find((item) => item.nextDate);
   const items = [
-    { day: '每周日', icon: Search, title: '耳朵与足间检查', meta: '下一次 · 8 月 16 日', tone: 'mint', status: '已安排' },
-    { day: '每月', icon: Weight, title: '体重与体况复盘', meta: '下一次 · 9 月 1 日', tone: 'blue', status: '自动重复' },
-    { day: '待补充', icon: ShieldCheck, title: '疫苗 / 驱虫安排', meta: '请按疫苗本与兽医日期设置', tone: 'gold', status: '需要日期' },
+    { day: '每周日', icon: Search, title: '耳朵与足间检查', meta: '轻量检查红、湿、异味和分泌物', tone: 'mint', status: '日常护理' },
+    { day: '每月', icon: Weight, title: '体重与体况复盘', meta: '在相近时间、相同条件下称重', tone: 'blue', status: `${profile.weights.length} 条记录` },
+    { day: nextVaccine?.nextDate || nextDeworming?.nextDate || '待补充', icon: ShieldCheck, title: '疫苗 / 驱虫安排', meta: nextVaccine ? `下次疫苗：${nextVaccine.name}` : nextDeworming ? `下次驱虫：${nextDeworming.name}` : '请按疫苗本与兽医日期设置', tone: 'gold', status: nextVaccine || nextDeworming ? '已设置' : '需要日期' },
   ];
   return (
     <section className="panel recurring-care">
-      <div className="panel-heading"><div><span className="eyebrow">周期护理</span><h3>接下来不会漏掉的事</h3></div><button className="text-button muted" onClick={() => onOpenArticle('help')}><Plus size={15} />了解记录方法</button></div>
+      <div className="panel-heading"><div><span className="eyebrow">周期护理</span><h3>接下来不会漏掉的事</h3></div><button className="text-button muted" onClick={onEditProfile}><Plus size={15} />补充日期</button></div>
       <div className="recurring-grid">
         {items.map(({ day, icon: Icon, title, meta, tone, status }) => <article key={title}><span className={`metric-icon ${tone}`}><Icon size={18} /></span><div><small>{day}</small><strong>{title}</strong><p>{meta}</p></div><em>{status}</em></article>)}
       </div>
@@ -829,8 +940,8 @@ function GuideCard({ tag, title, body, time, accent, icon: Icon, index, onClick 
   );
 }
 
-function Observation({ icon: Icon, label, value }) {
-  return <div className="observation"><span><Icon size={18} /></span><div><small>{label}</small><strong>{value}</strong></div><Check size={15} /></div>;
+function Observation({ icon: Icon, label, value, recorded = true }) {
+  return <div className={`observation ${recorded ? '' : 'is-empty'}`}><span><Icon size={18} /></span><div><small>{label}</small><strong>{value}</strong></div>{recorded ? <Check size={15} /> : <Minus size={15} />}</div>;
 }
 
 function ActivityCard({ icon: Icon, title, value, tag, tone }) {
@@ -905,37 +1016,123 @@ function ArticleDrawer({ article, onClose, onDone }) {
   );
 }
 
-function CheckInModal({ current, plan, onClose, onSave }) {
+function CheckInModal({ current, plan, initialType, onClose, onSave }) {
   const [draft, setDraft] = useState(current);
-  const [step, setStep] = useState(1);
+  const [selected, setSelected] = useState(initialType ? [initialType] : []);
   const set = (key, value) => setDraft((prev) => ({ ...prev, [key]: value }));
+  const choices = [
+    { id: 'food', icon: Utensils, title: '饮食', hint: '今天实际吃了多少' },
+    { id: 'water', icon: Droplets, title: '饮水变化', hint: '只有有观察时才记' },
+    { id: 'exercise', icon: Activity, title: '活动', hint: '嗅闻、游戏或训练' },
+    { id: 'weight', icon: Weight, title: '体重', hint: '称重时再补一条' },
+    { id: 'health', icon: HeartPulse, title: '便便与状态', hint: '有变化或想留档时记录' },
+    { id: 'care', icon: Sparkles, title: '护理 / 用药', hint: '梳毛、用药或备注' },
+  ];
   const healthOptions = {
-    water: [['normal', '正常'], ['more', '明显变多'], ['less', '明显变少']],
     stool: [['good', '成形'], ['soft', '偏软'], ['warning', '异常']],
     skin: [['normal', '无异常'], ['itch', '偶尔抓挠'], ['warning', '红 / 湿 / 臭']],
-    mood: [['bright', '活跃'], ['quiet', '安静'], ['warning', '明显虚弱']],
+    mood: [['bright', '活跃'], ['quiet', '比平时安静'], ['warning', '明显虚弱']],
   };
+  const toggle = (id) => setSelected((items) => items.includes(id) ? items.filter((item) => item !== id) : [...items, id]);
+  const hasWarning = draft.stool === 'warning' || draft.skin === 'warning' || draft.mood === 'warning';
+
   return (
     <div className="modal-layer" role="dialog" aria-modal="true" aria-label="记录今天">
       <button className="modal-backdrop" onClick={onClose} aria-label="关闭" />
-      <div className="modal-card">
-        <div className="modal-header"><div><span className="eyebrow">每日记录 · {step}/2</span><h2>{step === 1 ? '今天做了多少？' : '今天状态怎么样？'}</h2></div><button className="close-button" onClick={onClose}><X size={20} /></button></div>
-        <div className="step-track"><i style={{ width: step === 1 ? '50%' : '100%' }} /></div>
-        {step === 1 ? (
-          <div className="modal-body">
-            <NumberField icon={Utensils} label="全天饮食" value={draft.food} unit="g" target={`计划 ${plan.food} g`} onChange={(v) => set('food', v)} />
-            <NumberField icon={Activity} label="轻度活动" value={draft.exercise} unit="分钟" target={`计划 ${plan.exercise} 分钟`} onChange={(v) => set('exercise', v)} />
-            <label className="check-row"><input type="checkbox" checked={draft.brushed} onChange={(e) => set('brushed', e.target.checked)} /><span><i><Sparkles size={18} /></i><b>今天已梳毛</b><small>包括耳后、腋下和四肢检查</small></span><em><Check size={15} /></em></label>
-          </div>
-        ) : (
-          <div className="modal-body health-form">
-            {Object.entries(healthOptions).map(([key, options]) => <div className="choice-field" key={key}><label>{({water:'饮水',stool:'便便',skin:'皮肤 / 耳朵',mood:'精神状态'})[key]}</label><div>{options.map(([value,label]) => <button className={draft[key] === value ? 'active' : ''} onClick={() => set(key, value)} key={value}>{draft[key] === value && <Check size={14} />}{label}</button>)}</div></div>)}
-            {Object.values(draft).includes('warning') && <div className="form-warning"><Bell size={17} /><span><strong>记录里有需要关注的信号</strong>如果症状严重、快速恶化，或伴随呼吸异常、虚弱、持续呕吐，请直接联系兽医。</span></div>}
-          </div>
-        )}
-        <div className="modal-footer"><button className="secondary-button" onClick={step === 1 ? onClose : () => setStep(1)}>{step === 1 ? '稍后再记' : '上一步'}</button><button className="primary-button large" onClick={step === 1 ? () => setStep(2) : () => onSave(draft)}>{step === 1 ? <>继续<ArrowRight size={17} /></> : <><Check size={17} />保存记录</>}</button></div>
+      <div className="modal-card record-modal">
+        <div className="modal-header"><div><span className="eyebrow">按事项记录</span><h2>今天要补充哪件事？</h2><p>不需要每天填写整张表。点选今天真实发生的事项，只更新这些内容。</p></div><button className="close-button" onClick={onClose} aria-label="关闭"><X size={20} /></button></div>
+        <div className="record-picker">
+          {choices.map(({ id, icon: Icon, title, hint }) => <button type="button" className={selected.includes(id) ? 'active' : ''} onClick={() => toggle(id)} key={id}><span><Icon size={18} /></span><strong>{title}</strong><small>{hint}</small><i>{selected.includes(id) && <Check size={13} />}</i></button>)}
+        </div>
+        <div className="modal-body record-fields">
+          {selected.length === 0 && <div className="record-empty"><PawPrint size={24} /><div><strong>先选一项再记录</strong><span>比如今天只称了体重，就只选“体重”。</span></div></div>}
+          {selected.includes('food') && <section className="record-section"><div className="record-section-title"><Utensils size={17} /><strong>饮食</strong><span>更新今天的全天实际总量</span></div><NumberField icon={Utensils} label="全天饮食" value={draft.food} unit="g" target={`当前计划 ${plan.food} g`} onChange={(v) => set('food', v)} /></section>}
+          {selected.includes('water') && <section className="record-section"><div className="record-section-title"><Droplets size={17} /><strong>饮水变化</strong><span>不要求估算毫升，和它自己平时比较</span></div><div className="choice-field"><div>{[['normal', '与平时相近'], ['more', '明显变多'], ['less', '明显变少']].map(([value, label]) => <button type="button" className={draft.water === value ? 'active' : ''} onClick={() => set('water', value)} key={value}>{draft.water === value && <Check size={14} />}{label}</button>)}</div></div></section>}
+          {selected.includes('exercise') && <section className="record-section"><div className="record-section-title"><Activity size={17} /><strong>活动</strong><span>嗅闻、游戏和训练时间可合并记录</span></div><NumberField icon={Activity} label="轻度活动" value={draft.exercise} unit="分钟" target={`当前计划 ${plan.exercise} 分钟`} onChange={(v) => set('exercise', v)} /></section>}
+          {selected.includes('weight') && <section className="record-section"><div className="record-section-title"><Weight size={17} /><strong>体重</strong><span>保存后同时进入长期档案</span></div><NumberField icon={Weight} label="本次体重" value={draft.weightKg ?? ''} unit="kg" target="建议在相近条件下称重" step={0.05} onChange={(v) => set('weightKg', v)} /></section>}
+          {selected.includes('health') && <section className="record-section"><div className="record-section-title"><HeartPulse size={17} /><strong>便便与状态</strong><span>只记录你今天实际观察到的情况</span></div>{Object.entries(healthOptions).map(([key, options]) => <div className="choice-field" key={key}><label>{({ stool: '便便', skin: '皮肤 / 耳朵', mood: '精神状态' })[key]}</label><div>{options.map(([value, label]) => <button type="button" className={draft[key] === value ? 'active' : ''} onClick={() => set(key, value)} key={value}>{draft[key] === value && <Check size={14} />}{label}</button>)}</div></div>)}{hasWarning && <div className="form-warning"><Bell size={17} /><span><strong>记录里有需要关注的信号</strong>如果症状严重、快速恶化，或伴随呼吸异常、虚弱、持续呕吐，请直接联系兽医。</span></div>}</section>}
+          {selected.includes('care') && <section className="record-section"><div className="record-section-title"><Sparkles size={17} /><strong>护理 / 用药</strong><span>把今天真正完成的护理留下来</span></div><label className="check-row"><input type="checkbox" checked={draft.brushed} onChange={(e) => set('brushed', e.target.checked)} /><span><i><Sparkles size={18} /></i><b>今天已梳毛</b><small>包括耳后、腋下和四肢检查</small></span><em><Check size={15} /></em></label><label className="text-entry"><span>用药或护理内容</span><input value={draft.medication || ''} onChange={(e) => set('medication', e.target.value)} placeholder="例如：体外驱虫、滴耳液" /></label><label className="text-entry"><span>补充备注</span><textarea value={draft.note || ''} onChange={(e) => set('note', e.target.value)} placeholder="有需要再写，不是必填" /></label></section>}
+        </div>
+        <div className="modal-footer"><button className="secondary-button" onClick={onClose}>稍后再记</button><button className="primary-button large" disabled={selected.length === 0} onClick={() => onSave(draft, selected)}><Check size={17} />保存所选事项</button></div>
       </div>
     </div>
+  );
+}
+
+function ProfileModal({ current, onClose, onSave }) {
+  const [draft, setDraft] = useState(current);
+  const [tab, setTab] = useState('basic');
+  const set = (key, value) => setDraft((prev) => ({ ...prev, [key]: value }));
+  const updateList = (list, id, key, value) => setDraft((prev) => ({ ...prev, [list]: prev[list].map((item) => item.id === id ? { ...item, [key]: value } : item) }));
+  const removeListItem = (list, id) => setDraft((prev) => ({ ...prev, [list]: prev[list].filter((item) => item.id !== id) }));
+  const addWeight = () => setDraft((prev) => ({ ...prev, weights: [...prev.weights, { id: makeId('weight'), date: new Date().toISOString().slice(0, 10), kg: '' }] }));
+  const addCareRecord = (list) => setDraft((prev) => ({ ...prev, [list]: [...prev[list], { id: makeId(list), name: '', date: '', status: list === 'vaccines' ? '已完成' : '', nextDate: '', note: '' }] }));
+
+  return (
+    <div className="modal-layer" role="dialog" aria-modal="true" aria-label="编辑西高地档案">
+      <button className="modal-backdrop" onClick={onClose} aria-label="关闭" />
+      <div className="modal-card profile-modal">
+        <div className="modal-header profile-modal-head"><div><span className="eyebrow">长期档案 · 本机保存</span><h2>西高地档案</h2><p>这里保存不会每天重复填写的信息。体重、疫苗和驱虫可以随时补录或修改。</p></div><button className="close-button" onClick={onClose} aria-label="关闭"><X size={20} /></button></div>
+        <div className="profile-tabs" role="tablist">
+          <button className={tab === 'basic' ? 'active' : ''} onClick={() => setTab('basic')}><PawPrint size={16} />基础资料</button>
+          <button className={tab === 'weight' ? 'active' : ''} onClick={() => setTab('weight')}><Weight size={16} />体重记录 <span>{draft.weights.length}</span></button>
+          <button className={tab === 'care' ? 'active' : ''} onClick={() => setTab('care')}><ShieldCheck size={16} />疫苗与驱虫 <span>{draft.vaccines.length + draft.deworming.length}</span></button>
+        </div>
+        <div className="modal-body profile-body">
+          {tab === 'basic' && (
+            <section className="profile-form-grid">
+              <ProfileField label="昵称" value={draft.petName} onChange={(value) => set('petName', value)} placeholder="例如：小西" />
+              <ProfileField label="品种" value={draft.breed} onChange={(value) => set('breed', value)} />
+              <label className="profile-field"><span>性别</span><select value={draft.sex} onChange={(e) => set('sex', e.target.value)}><option>公犬</option><option>母犬</option><option>待确认</option></select></label>
+              <ProfileField label="出生日期" type="date" value={draft.birthDate} onChange={(value) => set('birthDate', value)} />
+              <ProfileField label="芯片号（可选）" value={draft.microchip} onChange={(value) => set('microchip', value)} placeholder="有芯片时再补充" wide />
+              <label className="profile-field wide"><span>档案备注</span><textarea value={draft.notes} onChange={(e) => set('notes', e.target.value)} placeholder="绝育、过敏史、常用医院等长期信息" /></label>
+            </section>
+          )}
+
+          {tab === 'weight' && (
+            <section className="profile-record-section">
+              <div className="profile-section-head"><div><strong>体重记录</strong><span>每条都可修改；首页趋势会使用最近 7 条有效记录。</span></div><button className="outline-button" onClick={addWeight}><Plus size={16} />添加体重</button></div>
+              <div className="profile-record-list">
+                {draft.weights.length === 0 && <ProfileEmpty icon={Weight} text="还没有体重记录" />}
+                {[...draft.weights].sort((a, b) => b.date.localeCompare(a.date)).map((item) => <div className="weight-record-row" key={item.id}><label><span>日期</span><input type="date" value={item.date} onChange={(e) => updateList('weights', item.id, 'date', e.target.value)} /></label><label><span>体重</span><div><input type="number" min="0" step="0.05" value={item.kg} onChange={(e) => updateList('weights', item.id, 'kg', e.target.value)} /><em>kg</em></div></label><button className="remove-record" onClick={() => removeListItem('weights', item.id)} aria-label="删除这条体重记录"><X size={16} /></button></div>)}
+              </div>
+            </section>
+          )}
+
+          {tab === 'care' && (
+            <div className="care-record-groups">
+              <CareRecordEditor title="疫苗记录" hint="建议按疫苗本逐针填写名称和日期" list="vaccines" items={draft.vaccines} onAdd={() => addCareRecord('vaccines')} onUpdate={updateList} onRemove={removeListItem} showStatus />
+              <CareRecordEditor title="驱虫记录" hint="体内、体外可以分别记录" list="deworming" items={draft.deworming} onAdd={() => addCareRecord('deworming')} onUpdate={updateList} onRemove={removeListItem} />
+            </div>
+          )}
+        </div>
+        <div className="modal-footer"><button className="secondary-button" onClick={onClose}>取消</button><button className="primary-button large" onClick={() => onSave(draft)}><Check size={17} />保存档案</button></div>
+      </div>
+    </div>
+  );
+}
+
+function ProfileField({ label, value, onChange, type = 'text', placeholder = '', wide = false }) {
+  return <label className={`profile-field ${wide ? 'wide' : ''}`}><span>{label}</span><input type={type} value={value || ''} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} /></label>;
+}
+
+function ProfileEmpty({ icon: Icon, text }) {
+  return <div className="profile-empty"><Icon size={21} /><span>{text}</span></div>;
+}
+
+function CareRecordEditor({ title, hint, list, items, onAdd, onUpdate, onRemove, showStatus = false }) {
+  return (
+    <section className="care-record-editor">
+      <div className="profile-section-head"><div><strong>{title}</strong><span>{hint}</span></div><button className="outline-button" onClick={onAdd}><Plus size={16} />添加一条</button></div>
+      <div className="care-record-list">
+        {items.length === 0 && <ProfileEmpty icon={ShieldCheck} text={`还没有${title}`} />}
+        {items.map((item) => <article className="care-record-row" key={item.id}>
+          <div className="care-record-top"><ProfileField label="名称" value={item.name} onChange={(value) => onUpdate(list, item.id, 'name', value)} placeholder={list === 'vaccines' ? '例如：狂犬疫苗' : '例如：体内驱虫'} wide /><button className="remove-record" onClick={() => onRemove(list, item.id)} aria-label={`删除这条${title}`}><X size={16} /></button></div>
+          <div className="care-record-fields"><ProfileField label="完成日期" type="date" value={item.date} onChange={(value) => onUpdate(list, item.id, 'date', value)} />{showStatus && <label className="profile-field"><span>状态</span><select value={item.status} onChange={(e) => onUpdate(list, item.id, 'status', e.target.value)}><option>已完成</option><option>进行中</option><option>待确认</option></select></label>}<ProfileField label="下次日期（可选）" type="date" value={item.nextDate} onChange={(value) => onUpdate(list, item.id, 'nextDate', value)} /><ProfileField label="备注（可选）" value={item.note} onChange={(value) => onUpdate(list, item.id, 'note', value)} placeholder="品牌、批次或兽医建议" /></div>
+        </article>)}
+      </div>
+    </section>
   );
 }
 
@@ -958,12 +1155,14 @@ function PlanModal({ current, onClose, onSave }) {
   );
 }
 
-function NumberField({ icon: Icon, label, value, unit, target, onChange }) {
+function NumberField({ icon: Icon, label, value, unit, target, onChange, step = 1 }) {
+  const numericValue = Number(value) || 0;
+  const changeBy = (direction) => onChange(Math.max(0, Number((numericValue + direction * step).toFixed(2))));
   return (
     <div className="number-field">
       <span className="metric-icon mint"><Icon size={19} /></span>
       <div><strong>{label}</strong><small>{target}</small></div>
-      <div className="stepper"><button onClick={() => onChange(Math.max(0, Number(value) - 1))}><Minus size={16} /></button><label><input type="number" value={value} min="0" onChange={(e) => onChange(Number(e.target.value))} /><span>{unit}</span></label><button onClick={() => onChange(Number(value) + 1)}><Plus size={16} /></button></div>
+      <div className="stepper"><button type="button" onClick={() => changeBy(-1)}><Minus size={16} /></button><label><input type="number" value={value} min="0" step={step} onChange={(e) => onChange(e.target.value === '' ? '' : Number(e.target.value))} /><span>{unit}</span></label><button type="button" onClick={() => changeBy(1)}><Plus size={16} /></button></div>
     </div>
   );
 }
