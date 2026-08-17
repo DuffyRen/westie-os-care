@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   Activity,
@@ -71,6 +71,7 @@ const feedings = [
 
 const guideCards = [
   {
+    articleId: 'feeding-transition',
     tag: '饮食',
     title: '从四餐过渡到三餐，先守住全天总量',
     body: '调整餐次时，先不要同时改变总克数。连续观察食欲、便便和体重趋势，再小步调整。',
@@ -79,6 +80,7 @@ const guideCards = [
     icon: Utensils,
   },
   {
+    articleId: 'movement-quality',
     tag: '运动',
     title: '幼犬的运动，质量比里程更重要',
     body: '短时嗅闻、探索和正向训练可以拆成多次完成；避免强迫跑步、连续爬楼和过度跳跃。',
@@ -87,6 +89,7 @@ const guideCards = [
     icon: Wind,
   },
   {
+    articleId: 'grooming-rhythm',
     tag: '美容',
     title: '白毛不等于每天洗：建立轻护理节奏',
     body: '日常先梳毛、擦嘴和检查足间。出现持续发红、异味或抓挠时，记录后联系兽医。',
@@ -95,6 +98,7 @@ const guideCards = [
     icon: Sparkles,
   },
   {
+    articleId: 'skin-observation',
     tag: '健康',
     title: '西高地的皮肤观察，应该记什么',
     body: '把瘙痒频率、位置、红斑、气味、耳道和近期饮食变化记在一起，比单张照片更有价值。',
@@ -103,6 +107,132 @@ const guideCards = [
     icon: Stethoscope,
   },
 ];
+
+const articleLibrary = {
+  featured: {
+    tag: '本月主题',
+    time: '6 分钟',
+    title: '从“喂饱”到“会观察”',
+    intro: '真正有用的饮食管理，不是死守一个数字，而是把克数、食欲、便便、饮水和体重趋势放在一起看。',
+    sections: [
+      { title: '先固定一个基线', body: '先按当前粮袋、犬只月龄和体况确定全天计划量。换餐次时先保持全天总量不变，避免同时改粮、改克数、改餐次。' },
+      { title: '记录连续变化', body: '单顿吃少、一次软便或一天体重波动，都不足以单独下结论。连续记录 3–7 天，更容易看清是否与换粮、零食、运动或压力有关。' },
+      { title: '只改一个变量', body: '需要调整时，一次只改变一项，并保留观察窗口。若持续呕吐、明显虚弱、血便或快速恶化，应直接联系兽医。' },
+    ],
+    checklist: ['全天总克数', '每餐完成度', '饮水变化', '便便形态', '每周同条件称重'],
+    source: [{ label: '皇家宠物食品：喂饲幼犬和幼犬营养', url: 'https://www.royalcanin.com.cn/dogs/puppy/feeding' }],
+  },
+  'feeding-transition': {
+    tag: '饮食',
+    time: '3 分钟',
+    title: '从四餐过渡到三餐，先守住全天总量',
+    intro: '餐次变化只是时间分配变化，不应顺手把全天总量也一起大幅调整。',
+    sections: [
+      { title: '第 1 步：确认粮型', body: '先核对包装上的完整产品名、适用月龄和喂养表。不同配方的能量密度不同，不能只拿“克数”横向比较。' },
+      { title: '第 2 步：重分配，不加量', body: '把原有全天总量重新分给三餐，先连续观察食欲和便便。自动喂食器每次换粮后，应重新称量多次并取平均值。' },
+      { title: '第 3 步：小步复盘', body: '结合体况、每周体重趋势和兽医建议再调整。不要因为一顿剩粮立刻换粮，也不要突然停掉一餐。' },
+    ],
+    checklist: ['包装与月龄匹配', '机器出粮量已校准', '全天总量暂时不变', '连续记录食欲与便便'],
+    warning: '持续拒食、反复呕吐、血便或精神明显变差，不等待观察周期，及时联系兽医。',
+    source: [{ label: '皇家宠物食品：喂饲幼犬和幼犬营养', url: 'https://www.royalcanin.com.cn/dogs/puppy/feeding' }],
+  },
+  'movement-quality': {
+    tag: '运动',
+    time: '4 分钟',
+    title: '幼犬的运动，质量比里程更重要',
+    intro: '自由嗅闻、轻游戏和短时训练可以同时满足身体活动与环境学习，不必追求连续跑动。',
+    sections: [
+      { title: '把活动拆短', body: '根据幼犬当下状态安排多次短活动。结束时仍愿意互动、回家后能正常休息，通常比追求固定里程更有意义。' },
+      { title: '让幼犬有选择', body: '允许它停下嗅闻、拉开距离或暂时离开刺激。社交化不是强迫接触，而是帮助幼犬在安全距离内保持放松。' },
+      { title: '坚持奖励式训练', body: '用食物、玩具和环境奖励想要的行为；避免电击项圈、刺钉项圈、勒颈和身体惩罚。' },
+    ],
+    checklist: ['安静路线自由嗅闻', '短时互动游戏', '名字回应训练', '主动休息与饮水'],
+    source: [
+      { label: 'AVSAB：幼犬社会化立场声明', url: 'https://avsab.org/resources/position-statements/' },
+      { label: 'AVSAB：人道犬只训练立场', url: 'https://avsab.org/resources/position-statements/' },
+    ],
+  },
+  'grooming-rhythm': {
+    tag: '美容',
+    time: '5 分钟',
+    title: '白毛不等于每天洗：建立轻护理节奏',
+    intro: '西高地的整洁感主要来自规律梳理、局部擦干和持续检查，而不是频繁使用清洁产品。',
+    sections: [
+      { title: '日常先梳再看', body: '从幼犬期开始，用短、轻、正向的方式梳毛。重点看耳后、腋下、腹部与四肢是否打结、发红或潮湿。' },
+      { title: '局部脏，局部处理', body: '进食和饮水后擦净并保持嘴边毛干燥；外出后检查足间。洗澡使用犬用产品和温水，吹风采用温暖低档。' },
+      { title: '异常先停新产品', body: '出现持续抓挠、异味、红斑、脱毛或反复耳部问题时，记录位置与时间，并联系兽医，不长期自行使用人药或激素。' },
+    ],
+    checklist: ['耳后与腋下无打结', '嘴边毛已擦干', '耳道无异味分泌物', '足间无红湿'],
+    source: [{ label: 'WHWTCA：Grooming Your Westie', url: 'https://westieclubamerica.com/behavior-grooming.html' }],
+  },
+  'skin-observation': {
+    tag: '健康',
+    time: '6 分钟',
+    title: '西高地的皮肤观察，应该记什么',
+    intro: '一条好记录应回答“哪里、多久、多频繁、同时发生了什么”，而不只是留下一张照片。',
+    sections: [
+      { title: '记录位置与程度', body: '标明耳朵、嘴边、腹部、腋下、足间或尾根；记录红、湿、皮屑、脱毛、气味与抓挠频率。' },
+      { title: '补齐前后背景', body: '同时记录近期换粮、零食、洗护产品、驱虫、外出环境与用药变化，便于兽医判断可能的相关因素。' },
+      { title: '知道何时升级', body: '持续或快速扩大的红斑、渗出、明显疼痛、强烈异味、精神食欲变化或反复耳炎，需要兽医检查。' },
+    ],
+    checklist: ['清晰照片与具体位置', '抓挠频率', '近期饮食或产品变化', '精神与食欲', '是否持续或扩大'],
+    warning: '系统只能帮助整理观察信息，不能据此诊断过敏、感染或寄生虫。',
+    source: [{ label: 'WHWTCA：西高地日常美容与健康观察', url: 'https://westieclubamerica.com/behavior-grooming.html' }],
+  },
+  brushing: {
+    tag: '护理方法', time: '2 分钟', title: '3 分钟日常梳毛', intro: '目标不是一次梳到完美，而是让幼犬接受触碰，并及时发现打结和皮肤变化。',
+    sections: [
+      { title: '准备', body: '选择防滑、稳定的位置，准备软针梳或适合当前毛质的梳子，以及少量奖励。' },
+      { title: '顺序', body: '先从背部和身体侧面开始，再到耳后、腋下与四肢。沿毛发生长方向轻梳，遇到结先用手分开，不硬拽。' },
+      { title: '结束', body: '幼犬仍放松时就结束并奖励。发现贴皮硬结、红痛或皮损时不要强行处理。' },
+    ], checklist: ['防滑位置', '短时分区', '不硬拽毛结', '放松时结束'], source: [{ label: 'WHWTCA：Grooming Your Westie', url: 'https://westieclubamerica.com/behavior-grooming.html' }],
+  },
+  'mouth-cleaning': {
+    tag: '护理方法', time: '2 分钟', title: '嘴边毛清洁与保持干燥', intro: '吃喝后及时擦净与保持干燥，比频繁叠加清洁剂更重要。',
+    sections: [
+      { title: '轻擦', body: '用柔软湿布擦掉食物残渣，再用干布轻压吸干；不要来回大力摩擦皮肤。' },
+      { title: '检查', body: '分开毛发看皮肤是否发红、潮湿、有气味或反复舔舐。持续异常时停止新产品并咨询兽医。' },
+    ], checklist: ['擦掉残渣', '轻压吸干', '观察皮肤', '清洁布单独使用'],
+  },
+  'ear-paw-check': {
+    tag: '护理方法', time: '3 分钟', title: '耳朵与足间检查', intro: '检查的重点是发现变化，不是每天深度清洁。',
+    sections: [
+      { title: '耳朵', body: '只观察能看见的位置：是否发红、潮湿、有明显气味或异常分泌物。不要把棉签深入耳道。' },
+      { title: '足间', body: '拨开脚趾毛，检查红湿、异物、破损和持续舔咬。外出后擦净并充分弄干。' },
+    ], checklist: ['无红湿', '无强烈异味', '无异常分泌物', '无持续舔咬'], warning: '疼痛、头歪、频繁甩头、明显肿胀或跛行，应联系兽医。',
+  },
+  'dental-care': {
+    tag: '护理方法', time: '3 分钟', title: '幼犬口腔护理入门', intro: '先建立允许触碰嘴边的习惯，再逐步进入犬用牙膏刷牙。',
+    sections: [
+      { title: '触碰训练', body: '短暂触碰嘴边、抬起唇部，立即奖励；幼犬抗拒时退回更简单一步。' },
+      { title: '逐步刷牙', body: '使用犬用牙刷和犬用牙膏，从外侧牙面几秒钟开始，逐渐延长。不要使用人用牙膏。' },
+    ], checklist: ['犬用牙膏', '短时正向练习', '从外侧牙面开始', '不强行掰嘴'],
+  },
+  emergency: {
+    tag: '紧急清单', time: '立即查看', title: '出现严重症状时先做什么', intro: '这份清单用于帮助你更快行动，不用于在家诊断。',
+    sections: [
+      { title: '立即联系急诊兽医', body: '呼吸困难、抽搐或昏厥、明显虚弱、持续呕吐、血便、严重疼痛、疑似中毒或疑似触电，都不要等待系统评分。' },
+      { title: '疑似触电', body: '先切断电源，不直接接触裸线；已经咬坏的电线和适配器不要缠胶带继续使用。即使表面暂时正常，也要向兽医说明是否可能通电。' },
+      { title: '准备就医信息', body: '记录症状开始时间、变化速度、可能接触物、近期用药与疫苗情况；安全情况下拍照或带上产品包装。' },
+    ], checklist: ['先确保人和犬安全', '联系急诊兽医', '记录时间与暴露物', '携带档案和包装'], warning: '若犬只呼吸异常、虚弱或意识改变，请立即出发就医。',
+  },
+  'health-records': {
+    tag: '健康档案', time: '2 分钟', title: '当前健康记录摘要', intro: '系统保存的是已知记录与观察，不代表完成了新的医学检查。',
+    sections: [
+      { title: '基础疫苗', body: '已记录三针基础疫苗。后续是否补种或加强，应以疫苗本、当地要求、产品标签和兽医意见为准。' },
+      { title: 'CDV / CPV 检测', body: '既有记录显示检测时抗原阴性、IgG 抗体已记录；这不等于未来没有感染风险。' },
+      { title: '全球指南边界', body: 'WSAVA 2024 建议幼犬核心疫苗按间隔完成至至少 16 周龄；具体方案仍由当地兽医结合风险和产品决定。' },
+    ], checklist: ['疫苗本照片', '接种日期与产品', '驱虫记录', '检查报告', '兽医联系方式'], source: [{ label: 'WSAVA：2024 犬猫疫苗指南', url: 'https://wsava.org/Global-Guidelines/Vaccination-Guidelines/' }],
+  },
+  help: {
+    tag: '使用帮助', time: '2 分钟', title: '这套系统怎么用', intro: '每天只需要完成一次简短记录，系统会根据你的个人计划值给出方向，而不是把示例数字当作医学标准。',
+    sections: [
+      { title: '1. 记录今天', body: '填写全天饮食、轻度活动和四项健康观察。数据只保存在当前浏览器。' },
+      { title: '2. 调整计划', body: '根据当前粮袋、体况和兽医建议修改饮食与活动计划。体重以连续趋势观察，不设万能合格线。' },
+      { title: '3. 阅读手册', body: '按饮食、运动、健康和美容筛选文章；每篇都标出可执行步骤与需要专业判断的边界。' },
+    ], checklist: ['完成今日记录', '每周复盘趋势', '异常时直接联系兽医'],
+  },
+};
 
 const trend = [
   { day: '08/08', weight: 2.34, food: 98, exercise: 18 },
@@ -146,6 +276,7 @@ function App() {
   const [planOpen, setPlanOpen] = useState(false);
   const [notice, setNotice] = useState('');
   const [mobileMenu, setMobileMenu] = useState(false);
+  const [selectedArticle, setSelectedArticle] = useState(null);
   const age = getAge();
 
   const scores = useMemo(() => {
@@ -184,6 +315,11 @@ function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const openArticle = (articleId) => {
+    const article = articleLibrary[articleId];
+    if (article) setSelectedArticle(article);
+  };
+
   const exportArchive = () => {
     const archive = {
       exportedAt: new Date().toISOString(),
@@ -205,7 +341,7 @@ function App() {
 
   return (
     <div className="app-shell">
-      <Sidebar active={active} onNavigate={navigate} age={age} onExport={exportArchive} />
+      <Sidebar active={active} onNavigate={navigate} age={age} onExport={exportArchive} onHelp={() => openArticle('help')} onProfile={() => openArticle('health-records')} />
 
       <main className="main-view">
         <Topbar
@@ -213,6 +349,7 @@ function App() {
           onCheckIn={() => setCheckInOpen(true)}
           onPlan={() => setPlanOpen(true)}
           onMenu={() => setMobileMenu(!mobileMenu)}
+          onNotify={() => showNotice('目前没有新的提醒')}
         />
 
         <div className="content-frame">
@@ -226,20 +363,22 @@ function App() {
               onPlan={() => setPlanOpen(true)}
               onNavigate={navigate}
               showNotice={showNotice}
+              onOpenArticle={openArticle}
             />
           )}
           {active === 'food' && <FoodPage log={log} plan={plan} onCheckIn={() => setCheckInOpen(true)} onPlan={() => setPlanOpen(true)} />}
-          {active === 'exercise' && <ExercisePage log={log} plan={plan} onCheckIn={() => setCheckInOpen(true)} />}
-          {active === 'health' && <HealthPage log={log} onCheckIn={() => setCheckInOpen(true)} />}
-          {active === 'grooming' && <GroomingPage log={log} setLog={saveLog} showNotice={showNotice} />}
-          {active === 'handbook' && <HandbookPage />}
+          {active === 'exercise' && <ExercisePage log={log} plan={plan} onCheckIn={() => setCheckInOpen(true)} showNotice={showNotice} />}
+          {active === 'health' && <HealthPage log={log} onCheckIn={() => setCheckInOpen(true)} onOpenArticle={openArticle} />}
+          {active === 'grooming' && <GroomingPage log={log} setLog={saveLog} showNotice={showNotice} onOpenArticle={openArticle} />}
+          {active === 'handbook' && <HandbookPage onOpenArticle={openArticle} />}
         </div>
 
-        <MobileNav active={active} onNavigate={navigate} open={mobileMenu} />
+        <MobileNav active={active} onNavigate={navigate} open={mobileMenu} onPlan={() => setPlanOpen(true)} />
       </main>
 
       {checkInOpen && <CheckInModal current={log} plan={plan} onClose={() => setCheckInOpen(false)} onSave={saveLog} />}
       {planOpen && <PlanModal current={plan} onClose={() => setPlanOpen(false)} onSave={savePlan} />}
+      {selectedArticle && <ArticleDrawer article={selectedArticle} onClose={() => setSelectedArticle(null)} onDone={() => { setSelectedArticle(null); showNotice('已完成阅读'); }} />}
       {notice && (
         <div className="toast" role="status">
           <span><Check size={15} strokeWidth={3} /></span>{notice}
@@ -249,7 +388,7 @@ function App() {
   );
 }
 
-function Sidebar({ active, onNavigate, age, onExport }) {
+function Sidebar({ active, onNavigate, age, onExport, onHelp, onProfile }) {
   return (
     <aside className="sidebar">
       <button className="brand" onClick={() => onNavigate('today')} aria-label="返回今日">
@@ -273,16 +412,16 @@ function Sidebar({ active, onNavigate, age, onExport }) {
         <div className="pet-mini-card">
           <div className="pet-avatar"><WestieFace /></div>
           <div><strong>你的小西</strong><span>公犬 · {age.label}</span></div>
-          <button aria-label="更多资料"><MoreHorizontal size={18} /></button>
+          <button aria-label="查看宠物资料" onClick={onProfile}><MoreHorizontal size={18} /></button>
         </div>
-        <button className="quiet-link"><CircleHelp size={18} />使用帮助</button>
+        <button className="quiet-link" onClick={onHelp}><CircleHelp size={18} />使用帮助</button>
         <button className="quiet-link" onClick={onExport}><Download size={18} />导出档案</button>
       </div>
     </aside>
   );
 }
 
-function Topbar({ active, onCheckIn, onPlan, onMenu }) {
+function Topbar({ active, onCheckIn, onPlan, onMenu, onNotify }) {
   const item = navItems.find((i) => i.id === active);
   return (
     <header className="topbar">
@@ -296,7 +435,7 @@ function Topbar({ active, onCheckIn, onPlan, onMenu }) {
         <strong>星期五</strong>
       </div>
       <div className="top-actions">
-        <button className="icon-button" aria-label="通知"><Bell size={19} /><i /></button>
+        <button className="icon-button" aria-label="通知" onClick={onNotify}><Bell size={19} /><i /></button>
         <button className="secondary-button" onClick={onPlan}><Target size={17} />对比计划</button>
         <button className="primary-button" onClick={onCheckIn}><Plus size={18} />记录今天</button>
       </div>
@@ -304,7 +443,7 @@ function Topbar({ active, onCheckIn, onPlan, onMenu }) {
   );
 }
 
-function Dashboard({ log, plan, scores, age, onCheckIn, onPlan, onNavigate, showNotice }) {
+function Dashboard({ log, plan, scores, age, onCheckIn, onPlan, onNavigate, showNotice, onOpenArticle }) {
   const exerciseGap = Math.max(plan.exercise - log.exercise, 0);
   const foodGap = log.food - plan.food;
   return (
@@ -381,7 +520,7 @@ function Dashboard({ log, plan, scores, age, onCheckIn, onPlan, onNavigate, show
         <div className="panel trend-panel">
           <div className="panel-heading">
             <div><span className="eyebrow">成长趋势</span><h3>体重正在稳定变化</h3></div>
-            <div className="range-toggle"><button className="active">7 天</button><button>30 天</button></div>
+            <div className="range-toggle"><button className="active">7 天</button><button onClick={() => showNotice('积累 30 天记录后会自动生成月趋势')}>30 天</button></div>
           </div>
           <div className="trend-summary">
             <strong>2.50 <small>kg</small></strong>
@@ -409,7 +548,7 @@ function Dashboard({ log, plan, scores, age, onCheckIn, onPlan, onNavigate, show
         <div><span className="eyebrow">每周精选</span><h2>把养护知识，变成今天能做的事</h2></div>
         <button className="text-button" onClick={() => onNavigate('handbook')}>打开养成手册<ArrowRight size={17} /></button>
         <div className="mini-guides">
-          {guideCards.slice(0, 3).map((guide) => <MiniGuide key={guide.title} {...guide} />)}
+          {guideCards.slice(0, 3).map((guide) => <MiniGuide key={guide.title} {...guide} onClick={() => onOpenArticle(guide.articleId)} />)}
         </div>
       </section>
     </div>
@@ -515,14 +654,14 @@ function PriorityItem({ number, icon: Icon, title, body, tone, action, onAction 
   );
 }
 
-function MiniGuide({ tag, title, accent, icon: Icon }) {
+function MiniGuide({ tag, title, accent, icon: Icon, onClick }) {
   return (
-    <article className={`mini-guide ${accent}`}>
+    <button className={`mini-guide ${accent}`} onClick={onClick} aria-label={`阅读：${title}`}>
       <span className="guide-icon"><Icon size={18} /></span>
       <small>{tag}</small>
       <strong>{title}</strong>
       <ArrowRight size={17} />
-    </article>
+    </button>
   );
 }
 
@@ -568,14 +707,14 @@ function FoodPage({ log, plan, onCheckIn, onPlan }) {
   );
 }
 
-function ExercisePage({ log, plan, onCheckIn }) {
+function ExercisePage({ log, plan, onCheckIn, showNotice }) {
   const percent = clamp(Math.round((log.exercise / plan.exercise) * 100));
   return (
     <div className="page module-page">
       <PageIntro eyebrow="运动与探索" title="短一点，开心一点" body="幼犬运动不追求刷里程。把自由嗅闻、轻游戏和正向训练拆成小段，让身体和大脑都有恢复时间。" action="记录活动" onAction={onCheckIn} />
       <div className="exercise-stage">
         <div className="activity-ring" style={{ '--percent': `${percent * 3.6}deg` }}><div><Activity size={25} /><strong>{log.exercise}</strong><span>/ {plan.exercise} 分钟</span></div></div>
-        <div className="exercise-copy"><span className="status-chip mild">还差 {Math.max(plan.exercise - log.exercise, 0)} 分钟</span><h2>今晚去闻一闻风</h2><p>选择熟悉、安静的路线，让小西自己决定在哪停留。一次 8–10 分钟就能完成今天的计划。</p><button className="primary-button">安排 20:30 嗅闻<ArrowRight size={17} /></button></div>
+        <div className="exercise-copy"><span className="status-chip mild">还差 {Math.max(plan.exercise - log.exercise, 0)} 分钟</span><h2>今晚去闻一闻风</h2><p>选择熟悉、安静的路线，让小西自己决定在哪停留。一次 8–10 分钟就能完成今天的计划。</p><button className="primary-button" onClick={() => showNotice('已安排今晚 20:30 自由嗅闻')}>安排 20:30 嗅闻<ArrowRight size={17} /></button></div>
         <div className="route-map"><span className="route-dot start"><PawPrint size={15} /></span><span className="route-line" /><span className="route-dot middle" /><span className="route-line second" /><span className="route-dot end"><Home size={14} /></span><i className="tree one">♧</i><i className="tree two">♧</i><p>自由嗅闻路线 · 约 650 m</p></div>
       </div>
       <div className="three-column">
@@ -588,7 +727,7 @@ function ExercisePage({ log, plan, onCheckIn }) {
   );
 }
 
-function HealthPage({ log, onCheckIn }) {
+function HealthPage({ log, onCheckIn, onOpenArticle }) {
   return (
     <div className="page module-page">
       <PageIntro eyebrow="健康管理" title="看见变化，而不是猜测" body="用连续记录帮助你更早发现异常，也帮助兽医看到完整背景。系统提示只做分流，不代替检查与诊断。" action="添加健康观察" onAction={onCheckIn} />
@@ -598,7 +737,7 @@ function HealthPage({ log, onCheckIn }) {
       </div>
       <div className="two-column health-columns">
         <section className="panel record-panel">
-          <div className="panel-heading"><div><span className="eyebrow">健康档案</span><h3>已记录事项</h3></div><button className="text-button muted">查看全部<ArrowRight size={15} /></button></div>
+          <div className="panel-heading"><div><span className="eyebrow">健康档案</span><h3>已记录事项</h3></div><button className="text-button muted" onClick={() => onOpenArticle('health-records')}>查看全部<ArrowRight size={15} /></button></div>
           <div className="record-timeline">
             <RecordItem date="近期" title="三针基础疫苗" body="已记录；后续安排以疫苗本、产品标签和兽医意见为准。" icon={ShieldCheck} />
             <RecordItem date="近期" title="CDV / CPV 检测" body="抗原检测阴性；IgG 抗体已记录。结果不等于零感染风险。" icon={Stethoscope} />
@@ -609,15 +748,15 @@ function HealthPage({ log, onCheckIn }) {
           <div className="triage-top"><span className="metric-icon coral"><Bell size={18} /></span><div><span className="eyebrow">快速分流</span><h3>这些情况不要等评分</h3></div></div>
           <div className="red-flags"><span>呼吸困难</span><span>持续呕吐</span><span>明显虚弱</span><span>血便</span><span>抽搐或昏厥</span><span>疑似触电 / 中毒</span></div>
           <p>出现任一严重或快速恶化的症状，请立即联系急诊兽医。若怀疑咬到通电电线，先断电并避免接触裸线。</p>
-          <button className="urgent-button"><Stethoscope size={17} />查看紧急处置清单</button>
+          <button className="urgent-button" onClick={() => onOpenArticle('emergency')}><Stethoscope size={17} />查看紧急处置清单</button>
         </section>
       </div>
-      <RecurringCare />
+      <RecurringCare onOpenArticle={onOpenArticle} />
     </div>
   );
 }
 
-function RecurringCare() {
+function RecurringCare({ onOpenArticle }) {
   const items = [
     { day: '每周日', icon: Search, title: '耳朵与足间检查', meta: '下一次 · 8 月 16 日', tone: 'mint', status: '已安排' },
     { day: '每月', icon: Weight, title: '体重与体况复盘', meta: '下一次 · 9 月 1 日', tone: 'blue', status: '自动重复' },
@@ -625,7 +764,7 @@ function RecurringCare() {
   ];
   return (
     <section className="panel recurring-care">
-      <div className="panel-heading"><div><span className="eyebrow">周期护理</span><h3>接下来不会漏掉的事</h3></div><button className="text-button muted"><Plus size={15} />添加计划</button></div>
+      <div className="panel-heading"><div><span className="eyebrow">周期护理</span><h3>接下来不会漏掉的事</h3></div><button className="text-button muted" onClick={() => onOpenArticle('help')}><Plus size={15} />了解记录方法</button></div>
       <div className="recurring-grid">
         {items.map(({ day, icon: Icon, title, meta, tone, status }) => <article key={title}><span className={`metric-icon ${tone}`}><Icon size={18} /></span><div><small>{day}</small><strong>{title}</strong><p>{meta}</p></div><em>{status}</em></article>)}
       </div>
@@ -633,7 +772,7 @@ function RecurringCare() {
   );
 }
 
-function GroomingPage({ log, setLog, showNotice }) {
+function GroomingPage({ log, setLog, showNotice, onOpenArticle }) {
   const toggleBrush = () => {
     setLog({ ...log, brushed: !log.brushed });
     showNotice(log.brushed ? '已取消今日梳毛' : '今日梳毛已完成');
@@ -647,16 +786,16 @@ function GroomingPage({ log, setLog, showNotice }) {
         <div className="grooming-progress"><span>本周护理</span><strong>{log.brushed ? '5' : '4'}<small> / 7 天</small></strong><div className="week-dots">{['一','二','三','四','五','六','日'].map((d, i) => <span className={i < (log.brushed ? 5 : 4) ? 'done' : ''} key={d}><i>{i < (log.brushed ? 5 : 4) ? <Check size={12} /> : ''}</i>{d}</span>)}</div></div>
       </div>
       <div className="grooming-grid">
-        <CareCard icon={Sparkles} title="梳毛" cadence="每天 3–5 分钟" detail="轻柔分区，打结处不要硬拽。" status={log.brushed ? '已完成' : '今天待做'} />
-        <CareCard icon={Droplets} title="嘴边清洁" cadence="进食饮水后" detail="擦干比反复使用清洁剂更重要。" status="今天 2 次" />
-        <CareCard icon={Search} title="耳朵 / 足间" cadence="每周检查" detail="看红、湿、异味和分泌物。" status="周日待查" />
-        <CareCard icon={Bone} title="口腔护理" cadence="逐步建立习惯" detail="使用犬用牙膏，从触碰训练开始。" status="训练中" />
+        <CareCard icon={Sparkles} title="梳毛" cadence="每天 3–5 分钟" detail="轻柔分区，打结处不要硬拽。" status={log.brushed ? '已完成' : '今天待做'} onClick={() => onOpenArticle('brushing')} />
+        <CareCard icon={Droplets} title="嘴边清洁" cadence="进食饮水后" detail="擦干比反复使用清洁剂更重要。" status="今天 2 次" onClick={() => onOpenArticle('mouth-cleaning')} />
+        <CareCard icon={Search} title="耳朵 / 足间" cadence="每周检查" detail="看红、湿、异味和分泌物。" status="周日待查" onClick={() => onOpenArticle('ear-paw-check')} />
+        <CareCard icon={Bone} title="口腔护理" cadence="逐步建立习惯" detail="使用犬用牙膏，从触碰训练开始。" status="训练中" onClick={() => onOpenArticle('dental-care')} />
       </div>
     </div>
   );
 }
 
-function HandbookPage() {
+function HandbookPage({ onOpenArticle }) {
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('全部');
   const categories = ['全部', '饮食', '运动', '健康', '美容'];
@@ -670,22 +809,22 @@ function HandbookPage() {
       </div>
       <div className="featured-guide">
         <div className="featured-index">W / 04</div>
-        <div className="featured-copy"><span className="eyebrow">本月成长主题</span><h2>从“喂饱”到“会观察”</h2><p>饮食管理真正有价值的部分，不只是精确到克，而是把克数、体况、便便和食欲放在同一张图里。</p><button className="light-button">开始阅读<ArrowRight size={17} /></button></div>
+        <div className="featured-copy"><span className="eyebrow">本月成长主题</span><h2>从“喂饱”到“会观察”</h2><p>饮食管理真正有价值的部分，不只是精确到克，而是把克数、体况、便便和食欲放在同一张图里。</p><button className="light-button" onClick={() => onOpenArticle('featured')}>开始阅读<ArrowRight size={17} /></button></div>
         <div className="featured-orbit"><span>食欲</span><span>便便</span><span>体重</span><span>克数</span><div><Utensils size={28} /></div></div>
       </div>
       <div className="guide-grid">
-        {filtered.length > 0 ? filtered.map((guide, index) => <GuideCard key={guide.title} {...guide} index={String(index + 1).padStart(2, '0')} />) : <div className="empty-state"><Search size={28} /><h3>暂时没有匹配内容</h3><p>换一个关键词，或切换到“全部”看看。</p></div>}
+        {filtered.length > 0 ? filtered.map((guide, index) => <GuideCard key={guide.title} {...guide} index={String(index + 1).padStart(2, '0')} onClick={() => onOpenArticle(guide.articleId)} />) : <div className="empty-state"><Search size={28} /><h3>暂时没有匹配内容</h3><p>换一个关键词，或切换到“全部”看看。</p></div>}
       </div>
       <div className="source-note"><Info size={17} /><p><strong>关于“标准”</strong>手册会区分产品喂养表、个人计划值、成长趋势和兽医判断。不同粮型、体况和健康史不能共用一个万能数字。</p></div>
     </div>
   );
 }
 
-function GuideCard({ tag, title, body, time, accent, icon: Icon, index }) {
+function GuideCard({ tag, title, body, time, accent, icon: Icon, index, onClick }) {
   return (
     <article className="guide-card">
       <div className={`guide-cover ${accent}`}><span>{index}</span><Icon size={32} /><i /></div>
-      <div className="guide-card-body"><div><span className="status-chip neutral">{tag}</span><small>{time}阅读</small></div><h3>{title}</h3><p>{body}</p><button>阅读手册<ArrowRight size={16} /></button></div>
+      <div className="guide-card-body"><div><span className="status-chip neutral">{tag}</span><small>{time}阅读</small></div><h3>{title}</h3><p>{body}</p><button onClick={onClick}>阅读手册<ArrowRight size={16} /></button></div>
     </article>
   );
 }
@@ -702,8 +841,68 @@ function RecordItem({ date, title, body, icon: Icon }) {
   return <div className="record-item"><time>{date}</time><span><Icon size={16} /></span><div><strong>{title}</strong><p>{body}</p></div></div>;
 }
 
-function CareCard({ icon: Icon, title, cadence, detail, status }) {
-  return <article className="care-card"><span className="care-icon"><Icon size={20} /></span><div className="care-head"><strong>{title}</strong><span>{status}</span></div><b>{cadence}</b><p>{detail}</p><button>查看方法<ArrowRight size={15} /></button></article>;
+function CareCard({ icon: Icon, title, cadence, detail, status, onClick }) {
+  return <article className="care-card"><span className="care-icon"><Icon size={20} /></span><div className="care-head"><strong>{title}</strong><span>{status}</span></div><b>{cadence}</b><p>{detail}</p><button onClick={onClick}>查看方法<ArrowRight size={15} /></button></article>;
+}
+
+function ArticleDrawer({ article, onClose, onDone }) {
+  useEffect(() => {
+    const previous = document.body.style.overflow;
+    const handleKey = (event) => {
+      if (event.key === 'Escape') onClose();
+    };
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', handleKey);
+    return () => {
+      document.body.style.overflow = previous;
+      window.removeEventListener('keydown', handleKey);
+    };
+  }, [onClose]);
+
+  return (
+    <div className="article-layer" role="dialog" aria-modal="true" aria-label={article.title}>
+      <button className="article-backdrop" onClick={onClose} aria-label="关闭文章" />
+      <article className="article-drawer">
+        <header className="article-header">
+          <div className="article-meta"><span>{article.tag}</span><i /><span>{article.time}</span></div>
+          <button className="close-button" onClick={onClose} aria-label="关闭"><X size={20} /></button>
+          <h2>{article.title}</h2>
+          <p>{article.intro}</p>
+        </header>
+
+        <div className="article-body">
+          <div className="article-reading-line"><span>WESTIE HANDBOOK</span><i /></div>
+          {article.sections.map((section, index) => (
+            <section className="article-section" key={section.title}>
+              <span>{String(index + 1).padStart(2, '0')}</span>
+              <div><h3>{section.title}</h3><p>{section.body}</p></div>
+            </section>
+          ))}
+
+          {article.checklist && (
+            <section className="article-checklist">
+              <div><Check size={18} /><h3>照着做</h3></div>
+              <ul>{article.checklist.map((item) => <li key={item}><span><Check size={12} /></span>{item}</li>)}</ul>
+            </section>
+          )}
+
+          {article.warning && <div className="article-warning"><ShieldCheck size={19} /><p><strong>需要升级处理</strong>{article.warning}</p></div>}
+
+          {article.source && (
+            <section className="article-sources">
+              <span>参考来源</span>
+              {article.source.map((source) => <a href={source.url} target="_blank" rel="noreferrer" key={source.url}>{source.label}<ArrowRight size={14} /></a>)}
+            </section>
+          )}
+        </div>
+
+        <footer className="article-footer">
+          <span><BookOpen size={17} />已读到文章末尾</span>
+          <button className="primary-button large" onClick={onDone}><Check size={17} />完成阅读</button>
+        </footer>
+      </article>
+    </div>
+  );
 }
 
 function CheckInModal({ current, plan, onClose, onSave }) {
@@ -769,12 +968,12 @@ function NumberField({ icon: Icon, label, value, unit, target, onChange }) {
   );
 }
 
-function MobileNav({ active, onNavigate, open }) {
+function MobileNav({ active, onNavigate, open, onPlan }) {
   const visible = navItems.slice(0, 5);
   return (
     <>
       <nav className="mobile-nav">{visible.map(({ id, label, icon: Icon }) => <button key={id} className={active === id ? 'active' : ''} onClick={() => onNavigate(id)}><Icon size={19} /><span>{label}</span></button>)}</nav>
-      {open && <div className="mobile-menu-pop"><button onClick={() => onNavigate('handbook')}><BookOpen size={19} />手册</button><button><Settings size={19} />设置</button></div>}
+      {open && <div className="mobile-menu-pop"><button onClick={() => onNavigate('handbook')}><BookOpen size={19} />手册</button><button onClick={onPlan}><Settings size={19} />设置计划</button></div>}
     </>
   );
 }
